@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bảng điều khiển - Remote Control Portal</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="dashboard-body">
+    <header class="main-header glass-card">
+        <div class="header-left">
+            <span class="brand-dot pulse"></span>
+            <h1 class="header-title">Remote Control</h1>
+            <span id="connection-badge" class="badge badge-offline">Đang kiểm tra...</span>
+        </div>
+        <div class="header-right">
+            <div class="refresh-control">
+                <label for="refresh-interval">Làm mới: </label>
+                <select id="refresh-interval">
+                    <option value="200">Siêu nhanh (200ms)</option>
+                    <option value="500" selected>Mượt mà (500ms)</option>
+                    <option value="1000">Tiết kiệm (1s)</option>
+                    <option value="2000">Chậm (2s)</option>
+                    <option value="manual">Thủ công</option>
+                </select>
+                <button id="btn-manual-refresh" class="btn btn-secondary btn-icon" title="Tải lại khung hình">
+                    🔄
+                </button>
+            </div>
+            <a href="{{ url_for('logout') }}" class="btn btn-danger btn-sm">Đăng xuất</a>
+        </div>
+    </header>
+
+    <main class="workspace">
+        <!-- Sidebar điều khiển bên trái -->
+        <aside class="control-sidebar glass-card">
+            <div class="sidebar-section">
+                <h3>Gửi lệnh nhanh</h3>
+                <div class="keyboard-grid">
+                    <button class="btn btn-control" data-key="ctrl+c">Ctrl + C</button>
+                    <button class="btn btn-control" data-key="ctrl+v">Ctrl + V</button>
+                    <button class="btn btn-control" data-key="ctrl+s">Ctrl + S</button>
+                    <button class="btn btn-control" data-key="ctrl+a">Ctrl + A</button>
+                    <button class="btn btn-control" data-key="alt+tab">Alt + Tab</button>
+                    <button class="btn btn-control" data-key="win">Win Key</button>
+                    <button class="btn btn-control" data-key="esc">Esc</button>
+                    <button class="btn btn-control" data-key="tab">Tab</button>
+                    <button class="btn btn-control" data-key="enter">Enter</button>
+                    <button class="btn btn-control" data-key="space">Space</button>
+                    <button class="btn btn-control" data-key="backspace">Backspace</button>
+                    <button class="btn btn-control" data-key="delete">Delete</button>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <h3>Gõ văn bản / Copy-Paste</h3>
+                <div class="form-group-inline">
+                    <input type="text" id="text-to-type" placeholder="Nhập văn bản cần gõ...">
+                    <button id="btn-send-text" class="btn btn-primary">Gõ</button>
+                </div>
+                <small class="help-text">Nhập text rồi nhấn "Gõ", máy ở nhà sẽ tự động giả lập nhập chuỗi này.</small>
+            </div>
+
+
+            
+            <div class="sidebar-section instructions">
+                <h3>💡 Phím tắt Chuột</h3>
+                <ul>
+                    <li><strong>Click trái:</strong> Click chuột trái trên màn hình</li>
+                    <li><strong>Click phải:</strong> Ctrl + Click trái trên màn hình</li>
+                    <li><strong>Double Click:</strong> Nhấn đúp chuột trái</li>
+                    <li><strong>Kéo thả (Drag):</strong> Giữ phím Shift + Click & Kéo thả</li>
+                </ul>
+            </div>
+        </aside>
+
+        <!-- Khung xem màn hình từ xa -->
+        <section class="screen-view glass-card">
+            <div class="screen-container">
+                <div class="screen-wrapper" id="screen-wrapper">
+                    <!-- Ảnh màn hình chính -->
+                    <img id="remote-screen" src="{{ url_for('get_screen') }}" alt="Màn hình đang kết nối..." draggable="false">
+                    <div id="mouse-cursor" class="virtual-cursor" style="display: none;"></div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <p>&copy; 2026 Remote Control Web Portal. Chạy trên PythonAnywhere.</p>
+    </footer>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>

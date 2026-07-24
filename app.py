@@ -1,0 +1,226 @@
+import os
+import sqlite3
+import datetime
+from flask import Flask, request, jsonify, render_template, redirect, url_for, session, send_file
+
+app = Flask(__name__)
+app.secret_key = os.urandom(24) # Sinh ngẫu nhiên secret key cho session mỗi lần khởi động server
+
+DATABASE = os.path.join(app.root_path, 'database.db')
+SCREEN_PATH = os.path.join(app.root_path, 'static', 'screen.jpg')
+
+def get_db():
+    conn = sqlite3.connect(DATABASE)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+def init_db():
+    # Tạo thư mục static nếu chưa có để chứa ảnh màn hình
+    os.makedirs(os.path.join(app.root_path, 'static'), exist_ok=True)
+    
+    with get_db() as conn:
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS session_info (
+                id INTEGER PRIMARY KEY,
+                password TEXT NOT NULL,
+                last_seen TIMESTAMP NOT NULL
+            )
+        ''')
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS commands (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                type TEXT NOT NULL,
+                data TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'pending',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        conn.commit()
+
+# Khởi tạo DB khi chạy ứng dụng
+init_db()
+
+# Middleware kiểm tra đăng nhập cho người dùng
+def login_required(f):
+    from functools import wraps
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not session.get('logged_in'):
+            return redirect(url_for('login'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+# Xác thực request từ Client ở nhà
+def verify_client_request():
+    client_password = request.headers.get('X-Client-Password')
+    if not client_password:
+        return False
+    
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT password FROM session_info ORDER BY id DESC LIMIT 1")
+        row = cursor.fetchone()
+        if row and row['password'] == client_password:
+            # Cập nhật thời gian hoạt động của client
+            conn.execute("UPDATE session_info SET last_seen = ? WHERE password = ?", 
+                         (datetime.datetime.now(), client_password))
+            conn.commit()
+            return True
+    return False
+
+# ================= API DÀNH CHO HOME PC CLIENT =================
+
+@app.route('/api/client/register', methods=['POST'])
+def client_register():
+    data = request.get_json()
+    if not data or 'password' not in data:
+        return jsonify({"status": "error", "message": "Missing password"}), 400
+    
+    password = data['password']
+    now = datetime.datetime.now()
+    
+    with get_db() as conn:
+        conn.execute("DELETE FROM session_info") # Xoá phiên cũ
+        conn.execute("DELETE FROM commands")     # Xoá hàng đợi lệnh cũ
+        conn.execute("INSERT INTO session_info (id, password, last_seen) VALUES (1, ?, ?)", (password, now))
+        conn.commit()
+        
+    # Xoá ảnh chụp màn hình cũ nếu có
+    if os.path.exists(SCREEN_PATH):
+        try:
+            os.remove(SCREEN_PATH)
+        except Exception:
+            pass
+            
+    return jsonify({"status": "success", "message": "Client registered successfully"})
+
+@app.route('/api/client/poll', methods=['GET'])
+def client_poll():
+    if not verify_client_request():
+        return jsonify({"status": "error", "message": "Unauthorized"}), 401
+    
+    with get_db() as conn:
+        cursor = conn.cursor()
+        # Lấy tất cả các lệnh đang chờ xử lý
+        cursor.execute("SELECT id, type, data FROM commands WHERE status = 'pending' ORDER BY id ASC")
+        rows = cursor.fetchall()
+        
+        commands = []
+        if rows:
+            for row in rows:
+                commands.append({
+                    "id": row["id"],
+                    "type": row["type"],
+                    "data": row["data"]
+                })
+            # Đánh dấu các lệnh này đã được gửi (done hoặc gửi đi)
+            # Ở đây ta chuyển trạng thái thành 'sent' để giữ log, hoặc xóa luôn. Để gọn nhẹ ta xóa luôn.
+            conn.execute("DELETE FROM commands WHERE status = 'pending'")
+            conn.commit()
+            
+    return jsonify({"status": "success", "commands": commands})
+
+@app.route('/api/client/screen', methods=['POST'])
+def client_upload_screen():
+    if not verify_client_request():
+        return jsonify({"status": "error", "message": "Unauthorized"}), 401
+        
+    if 'file' not in request.files:
+        return jsonify({"status": "error", "message": "No file part"}), 400
+        
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({"status": "error", "message": "No selected file"}), 400
+        
+    if file:
+        file.save(SCREEN_PATH)
+        return jsonify({"status": "success", "message": "Screen updated"})
+
+# ================= API DÀNH CHO OFFICE PC (WEB INTERFACE) =================
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        password = request.form.get('password')
+        with get_db() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT password FROM session_info ORDER BY id DESC LIMIT 1")
+            row = cursor.fetchone()
+            if row and row['password'] == password:
+                session['logged_in'] = True
+                return redirect(url_for('index'))
+            else:
+                return render_template('login.html', error="Sai mật khẩu kết nối!")
+    return render_template('login.html')
+
+@app.route('/logout')
+def logout():
+    session.pop('logged_in', None)
+    return redirect(url_for('login'))
+
+@app.route('/')
+@login_required
+def index():
+    return render_template('index.html')
+
+@app.route('/api/command', methods=['POST'])
+@login_required
+def post_command():
+    data = request.get_json()
+    if not data or 'type' not in data or 'data' not in data:
+        return jsonify({"status": "error", "message": "Invalid command data"}), 400
+        
+    cmd_type = data['type']
+    cmd_data = data['data'] # JSON string hoặc dict, ta chuyển thành string để lưu SQLite
+    if isinstance(cmd_data, dict):
+        import json
+        cmd_data = json.dumps(cmd_data)
+        
+    with get_db() as conn:
+        conn.execute("INSERT INTO commands (type, data, status) VALUES (?, ?, 'pending')", (cmd_type, cmd_data))
+        conn.commit()
+        
+    return jsonify({"status": "success", "message": "Command queued"})
+
+@app.route('/api/screen')
+@login_required
+def get_screen():
+    if os.path.exists(SCREEN_PATH):
+        response = send_file(SCREEN_PATH, mimetype='image/jpeg')
+        # Thêm header chống cache để trình duyệt luôn lấy ảnh mới nhất
+        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+        return response
+    else:
+        # Nếu chưa có ảnh, trả về ảnh đen trống hoặc status
+        return "No screen frame available yet", 404
+
+@app.route('/api/status')
+@login_required
+def get_status():
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT last_seen FROM session_info ORDER BY id DESC LIMIT 1")
+        row = cursor.fetchone()
+        if row:
+            last_seen_str = row['last_seen']
+            # sqlite3 lưu datetime dưới dạng string 'YYYY-MM-DD HH:MM:SS.ffffff' hoặc tương tự
+            try:
+                last_seen = datetime.datetime.strptime(last_seen_str.split('.')[0], "%Y-%m-%d %H:%M:%S")
+            except Exception:
+                try:
+                    last_seen = datetime.datetime.strptime(last_seen_str, "%Y-%m-%d %H:%M:%S")
+                except Exception:
+                    return jsonify({"status": "unknown"})
+                    
+            diff = (datetime.datetime.now() - last_seen).total_seconds()
+            if diff < 15: # Nếu client poll trong vòng 15 giây qua thì là online
+                return jsonify({"status": "online", "last_seen_seconds_ago": int(diff)})
+            else:
+                return jsonify({"status": "offline", "last_seen_seconds_ago": int(diff)})
+        return jsonify({"status": "not_registered"})
+
+if __name__ == '__main__':
+    # Chạy cục bộ để test
+    app.run(host='0.0.0.0', port=5000, debug=True)
