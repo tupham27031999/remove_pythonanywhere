@@ -10,6 +10,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let refreshTimer = null;
     let isRefreshing = false;
+    let tempFastRefreshTimer = null;
+    let tempFastRefreshCounter = 0;
 
     // ================= 1. HÀM CẬP NHẬT MÀN HÌNH =================
     
@@ -48,6 +50,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
     refreshSelect.addEventListener('change', setupAutoRefresh);
     btnManualRefresh.addEventListener('click', refreshScreen);
+
+    // Tự động kích hoạt refresh nhanh dồn dập khi có tương tác
+    function triggerFastRefresh() {
+        if (tempFastRefreshTimer) {
+            clearInterval(tempFastRefreshTimer);
+        }
+        tempFastRefreshCounter = 0;
+        // Thực hiện refresh nhanh mỗi 300ms trong vòng 8 lần (~2.4 giây)
+        // để bắt kịp phản hồi của máy tính ở nhà sau lệnh click/phím
+        tempFastRefreshTimer = setInterval(() => {
+            refreshScreen();
+            tempFastRefreshCounter++;
+            if (tempFastRefreshCounter >= 8) {
+                clearInterval(tempFastRefreshTimer);
+                tempFastRefreshTimer = null;
+            }
+        }, 300);
+    }
+
     setupAutoRefresh(); // Kích hoạt ngay khi load trang
 
     // ================= 2. KIỂM TRA TRẠNG THÁI CLIENT =================
@@ -101,12 +122,12 @@ document.addEventListener('DOMContentLoaded', () => {
         .then(res => res.json())
         .then(resData => {
             if (resData.status === 'success') {
-                // Sau khi gửi lệnh thành công, đợi 300ms rồi reload screen ngay
-                // Việc này giúp phản hồi nhanh hình ảnh của lệnh vừa thực thi
-                setTimeout(refreshScreen, 300);
+                // Kích hoạt chuỗi refresh nhanh dồn dập ngay sau khi gửi lệnh thành công
+                triggerFastRefresh();
             }
         })
         .catch(err => console.error('Lỗi gửi lệnh:', err));
+
     }
 
     // ================= 4. BẮT SỰ KIỆN TƯƠNG TÁC CHUỘT TRÊN MÀN HÌNH =================
