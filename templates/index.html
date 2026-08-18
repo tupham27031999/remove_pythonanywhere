@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bảng điều khiển - Remote Control Portal</title>
+    <title>Bảng điều khiển - Test Interface Portal</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -13,7 +13,7 @@
     <header class="main-header glass-card">
         <div class="header-left">
             <span class="brand-dot pulse"></span>
-            <h1 class="header-title">Remote Control</h1>
+            <h1 class="header-title">Test Interface</h1>
             <span id="connection-badge" class="badge badge-offline">Đang kiểm tra...</span>
         </div>
         <div class="header-right">
@@ -66,6 +66,18 @@
 
 
             
+            <div class="sidebar-section">
+                <h3>Sao chép File từ máy tính</h3>
+                <div class="form-group-inline">
+                    <input type="text" id="file-path-to-get" placeholder="Đường dẫn file (ví dụ C:\temp\a.txt)...">
+                    <button id="btn-request-file" class="btn btn-success">Lấy file</button>
+                </div>
+                <small class="help-text">Nhập đường dẫn đầy đủ của file văn bản để đọc trực tiếp trên Web.</small>
+                <button id="btn-toggle-viewer" class="btn btn-secondary btn-sm btn-block" style="margin-top: 5px;">
+                    👁️ Ẩn/Hiện khung xem file
+                </button>
+            </div>
+
             <div class="sidebar-section instructions">
                 <h3>💡 Phím tắt Chuột</h3>
                 <ul>
@@ -89,8 +101,37 @@
         </section>
     </main>
 
+    <!-- Cửa sổ Drawer xem nội dung file -->
+    <div id="file-viewer-drawer" class="file-viewer-drawer">
+        <div class="drawer-header">
+            <div class="drawer-title-container">
+                <h2 id="viewer-file-name">Nội dung file</h2>
+                <span id="viewer-status-badge" class="badge badge-warning">Đang chờ</span>
+            </div>
+            <div class="drawer-actions">
+                <button id="btn-copy-file-content" class="btn btn-secondary btn-sm" title="Sao chép nội dung">
+                    📋 Copy
+                </button>
+                <button id="btn-close-drawer" class="btn btn-danger btn-sm" title="Đóng cửa sổ">
+                    ✕
+                </button>
+            </div>
+        </div>
+        <div class="drawer-body">
+            <div id="viewer-error-container" class="alert alert-error" style="display: none;">
+                <span class="alert-icon">⚠️</span>
+                <span id="viewer-error-msg"></span>
+            </div>
+            <div id="viewer-loading" class="viewer-loading-container" style="display: none;">
+                <div class="spinner"></div>
+                <p>Đang tải nội dung file...</p>
+            </div>
+            <pre><code id="file-viewer-content"></code></pre>
+        </div>
+    </div>
+
     <footer class="footer">
-        <p>&copy; 2026 Remote Control Web Portal. Chạy trên PythonAnywhere.</p>
+        <p>&copy; 2026 Test Interface Web Portal. Chạy trên PythonAnywhere.</p>
     </footer>
 
     <script src="{{ url_for('static', filename='script.js') }}"></script>

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Đăng nhập - Remote Control Portal</title>
+    <title>Đăng nhập - Test Interface Portal</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
@@ -14,9 +14,9 @@
         <div class="glass-card login-card animate-fade-in">
             <div class="brand">
                 <span class="brand-dot"></span>
-                <h1>Remote Access</h1>
+                <h1>System Test</h1>
             </div>
-            <p class="subtitle">Nhập mật khẩu phiên hiển thị trên Client máy tính ở nhà để bắt đầu điều khiển.</p>
+            <p class="subtitle">Nhập mật mã xác thực để truy cập giao diện kiểm thử hệ thống.</p>
             
             {% if error %}
                 <div class="alert alert-error">
@@ -27,14 +27,14 @@
             
             <form action="{{ url_for('login') }}" method="POST" class="login-form">
                 <div class="form-group">
-                    <label for="password">Mật khẩu kết nối</label>
+                    <label for="password">Mật mã xác thực</label>
                     <input type="password" id="password" name="password" placeholder="Nhập mật khẩu..." required autofocus autocomplete="off">
                 </div>
-                <button type="submit" class="btn btn-primary btn-block">Kết nối ngay</button>
+                <button type="submit" class="btn btn-primary btn-block">Xác thực</button>
             </form>
             
             <div class="footer-note">
-                <p>Giải pháp Remote Control mã hóa HTTPS bảo mật.</p>
+                <p>Giao diện kiểm thử hệ thống bảo mật.</p>
             </div>
         </div>
     </div>

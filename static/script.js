@@ -222,4 +222,158 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // ================= 6. XỬ LÝ LẤY FILE VÀ DRAWER HIỂN THỊ =================
+    const filePathToGet = document.getElementById('file-path-to-get');
+    const btnRequestFile = document.getElementById('btn-request-file');
+    const btnToggleViewer = document.getElementById('btn-toggle-viewer');
+    const fileViewerDrawer = document.getElementById('file-viewer-drawer');
+    const viewerFileName = document.getElementById('viewer-file-name');
+    const viewerStatusBadge = document.getElementById('viewer-status-badge');
+    const btnCopyFileContent = document.getElementById('btn-copy-file-content');
+    const btnCloseDrawer = document.getElementById('btn-close-drawer');
+    const viewerErrorContainer = document.getElementById('viewer-error-container');
+    const viewerErrorMsg = document.getElementById('viewer-error-msg');
+    const viewerLoading = document.getElementById('viewer-loading');
+    const fileViewerContent = document.getElementById('file-viewer-content');
+
+    let filePollInterval = null;
+
+    // Ẩn/hiện Drawer
+    function toggleDrawer(forceState) {
+        if (forceState !== undefined) {
+            if (forceState) fileViewerDrawer.classList.add('open');
+            else fileViewerDrawer.classList.remove('open');
+        } else {
+            fileViewerDrawer.classList.toggle('open');
+        }
+    }
+
+    btnToggleViewer.addEventListener('click', () => toggleDrawer());
+    btnCloseDrawer.addEventListener('click', () => toggleDrawer(false));
+
+    // Sao chép nội dung file
+    btnCopyFileContent.addEventListener('click', () => {
+        const text = fileViewerContent.textContent;
+        if (!text) return;
+        
+        navigator.clipboard.writeText(text).then(() => {
+            const originalText = btnCopyFileContent.textContent;
+            btnCopyFileContent.textContent = '✅ Đã copy!';
+            setTimeout(() => {
+                btnCopyFileContent.textContent = originalText;
+            }, 2000);
+        }).catch(err => {
+            console.error('Không thể copy:', err);
+            alert('Lỗi khi copy vào clipboard');
+        });
+    });
+
+    // Gửi yêu cầu lấy file
+    function startRequestFile() {
+        const path = filePathToGet.value.trim();
+        if (!path) {
+            alert('Vui lòng nhập đường dẫn file!');
+            return;
+        }
+
+        // Mở drawer và chuyển sang trạng thái chờ tải
+        toggleDrawer(true);
+        const fileName = path.split('\\').pop().split('/').pop();
+        viewerFileName.textContent = fileName;
+        viewerFileName.title = path;
+        
+        viewerLoading.style.display = 'flex';
+        viewerErrorContainer.style.display = 'none';
+        fileViewerContent.textContent = '';
+        
+        viewerStatusBadge.textContent = 'ĐANG TẢI...';
+        viewerStatusBadge.className = 'badge badge-warning';
+
+        if (filePollInterval) {
+            clearInterval(filePollInterval);
+        }
+
+        fetch('/api/request_file', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ file_path: path })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'success') {
+                const transferId = data.transfer_id;
+                // Bắt đầu poll trạng thái file
+                pollFileStatus(transferId);
+            } else {
+                showViewerError(data.message || 'Lỗi gửi yêu cầu đọc file.');
+            }
+        })
+        .catch(err => {
+            console.error('Lỗi yêu cầu file:', err);
+            showViewerError('Không thể kết nối máy chủ để yêu cầu file.');
+        });
+    }
+
+    btnRequestFile.addEventListener('click', startRequestFile);
+    filePathToGet.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            startRequestFile();
+        }
+    });
+
+    function showViewerError(msg) {
+        viewerLoading.style.display = 'none';
+        viewerErrorMsg.textContent = msg;
+        viewerErrorContainer.style.display = 'flex';
+        fileViewerContent.textContent = '';
+        viewerStatusBadge.textContent = 'LỖI';
+        viewerStatusBadge.className = 'badge badge-offline';
+    }
+
+    function pollFileStatus(transferId) {
+        let attempts = 0;
+        const maxAttempts = 60; // 30 giây tối đa
+
+        filePollInterval = setInterval(() => {
+            attempts++;
+            if (attempts > maxAttempts) {
+                clearInterval(filePollInterval);
+                showViewerError('Hết thời gian chờ phản hồi từ laptop (Timeout 30s).');
+                return;
+            }
+
+            fetch(`/api/file_status/${transferId}`)
+            .then(res => res.json())
+            .then(resData => {
+                if (resData.status === 'success') {
+                    const fileData = resData.data;
+                    
+                    if (fileData.status === 'success') {
+                        // Thành công, dừng poll và hiển thị
+                        clearInterval(filePollInterval);
+                        viewerLoading.style.display = 'none';
+                        fileViewerContent.textContent = fileData.content;
+                        viewerStatusBadge.textContent = 'HOÀN THÀNH';
+                        viewerStatusBadge.className = 'badge badge-online pulse';
+                    } else if (fileData.status === 'error') {
+                        // Thất bại, dừng poll và hiển thị lỗi
+                        clearInterval(filePollInterval);
+                        showViewerError(fileData.error_message || 'Laptop báo lỗi khi đọc file.');
+                    }
+                    // Nếu trạng thái là 'pending', tiếp tục poll ở lần lặp tiếp theo
+                } else {
+                    clearInterval(filePollInterval);
+                    showViewerError(resData.message || 'Lỗi kiểm tra trạng thái.');
+                }
+            })
+            .catch(err => {
+                console.error('Lỗi khi poll status:', err);
+                clearInterval(filePollInterval);
+                showViewerError('Mất kết nối mạng khi đang tải file.');
+            });
+        }, 500); // Poll mỗi 500ms
+    }
+
 });

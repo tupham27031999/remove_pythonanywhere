@@ -1,7 +1,20 @@
 import os
+import sys
 import sqlite3
 import datetime
 from flask import Flask, request, jsonify, render_template, redirect, url_for, session, send_file
+
+# Cấu hình mã hoá utf-8 cho đầu ra console để tránh UnicodeEncodeError trên terminal Windows
+if sys.stdout and sys.stdout.encoding != 'utf-8':
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+    except AttributeError:
+        pass
+if sys.stderr and sys.stderr.encoding != 'utf-8':
+    try:
+        sys.stderr.reconfigure(encoding='utf-8')
+    except AttributeError:
+        pass
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24) # Sinh ngẫu nhiên secret key cho session mỗi lần khởi động server
@@ -33,6 +46,16 @@ def init_db():
                 data TEXT NOT NULL,
                 status TEXT NOT NULL DEFAULT 'pending',
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS file_content (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                file_path TEXT NOT NULL,
+                content TEXT,
+                status TEXT NOT NULL DEFAULT 'pending',
+                error_message TEXT,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         ''')
         conn.commit()
@@ -82,6 +105,7 @@ def client_register():
     with get_db() as conn:
         conn.execute("DELETE FROM session_info") # Xoá phiên cũ
         conn.execute("DELETE FROM commands")     # Xoá hàng đợi lệnh cũ
+        conn.execute("DELETE FROM file_content")  # Xoá lịch sử lấy file cũ
         conn.execute("INSERT INTO session_info (id, password, last_seen) VALUES (1, ?, ?)", (password, now))
         conn.commit()
         
@@ -150,7 +174,7 @@ def login():
                 session['logged_in'] = True
                 return redirect(url_for('index'))
             else:
-                return render_template('login.html', error="Sai mật khẩu kết nối!")
+                return render_template('login.html', error="Sai mật mã xác thực!")
     return render_template('login.html')
 
 @app.route('/logout')
@@ -181,6 +205,91 @@ def post_command():
         conn.commit()
         
     return jsonify({"status": "success", "message": "Command queued"})
+
+# ================= API XỬ LÝ LẤY NỘI DUNG FILE TỪ XA =================
+
+@app.route('/api/request_file', methods=['POST'])
+@login_required
+def request_file():
+    data = request.get_json()
+    if not data or 'file_path' not in data:
+        return jsonify({"status": "error", "message": "Thiếu đường dẫn file"}), 400
+        
+    file_path = data['file_path']
+    
+    with get_db() as conn:
+        cursor = conn.cursor()
+        # Thêm yêu cầu vào bảng file_content
+        cursor.execute(
+            "INSERT INTO file_content (file_path, status) VALUES (?, 'pending')", 
+            (file_path,)
+        )
+        transfer_id = cursor.lastrowid
+        
+        # Tạo lệnh gửi xuống cho Client laptop
+        import json
+        cmd_data = json.dumps({
+            "file_path": file_path,
+            "transfer_id": transfer_id
+        })
+        cursor.execute(
+            "INSERT INTO commands (type, data, status) VALUES ('copy_file_content', ?, 'pending')", 
+            (cmd_data,)
+        )
+        conn.commit()
+        
+    return jsonify({
+        "status": "success", 
+        "message": "Đã yêu cầu đọc file từ laptop", 
+        "transfer_id": transfer_id
+    })
+
+@app.route('/api/file_status/<int:transfer_id>', methods=['GET'])
+@login_required
+def file_status(transfer_id):
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT file_path, content, status, error_message FROM file_content WHERE id = ?", 
+            (transfer_id,)
+        )
+        row = cursor.fetchone()
+        
+    if not row:
+        return jsonify({"status": "error", "message": "Không tìm thấy phiên yêu cầu file này"}), 404
+        
+    return jsonify({
+        "status": "success",
+        "data": {
+            "file_path": row["file_path"],
+            "content": row["content"],
+            "status": row["status"],
+            "error_message": row["error_message"]
+        }
+    })
+
+@app.route('/api/client/file_content', methods=['POST'])
+def client_upload_file_content():
+    if not verify_client_request():
+        return jsonify({"status": "error", "message": "Unauthorized"}), 401
+        
+    data = request.get_json()
+    if not data or 'transfer_id' not in data or 'status' not in data:
+        return jsonify({"status": "error", "message": "Dữ liệu không hợp lệ"}), 400
+        
+    transfer_id = data['transfer_id']
+    status = data['status']
+    content = data.get('content')
+    error_message = data.get('error_message')
+    
+    with get_db() as conn:
+        conn.execute(
+            "UPDATE file_content SET status = ?, content = ?, error_message = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+            (status, content, error_message, transfer_id)
+        )
+        conn.commit()
+        
+    return jsonify({"status": "success", "message": "Cập nhật nội dung file thành công"})
 
 @app.route('/api/screen')
 @login_required
