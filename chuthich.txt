@@ -1,0 +1,9 @@
+cd c:\tupn1\code\dieu_kien_laptop_tu_xa\code_pythonanywhere
+git add .
+git commit -m "add remote edit and save feature"
+git push origin main
+
+
+cd remove_pythonanywhere
+git fetch --all
+git reset --hard origin/main

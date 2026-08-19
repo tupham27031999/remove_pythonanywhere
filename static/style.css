@@ -625,7 +625,7 @@ input:focus, select:focus {
 }
 
 /* Code area formatting */
-.drawer-body pre {
+.file-editor-textarea {
     flex: 1;
     background: rgba(0, 0, 0, 0.4);
     border: 1px solid var(--border-color);
@@ -636,23 +636,29 @@ input:focus, select:focus {
     font-size: 0.88rem;
     line-height: 1.5;
     color: #e5e7eb;
-    white-space: pre-wrap;
-    word-break: break-all;
+    resize: none;
+    outline: none;
+    transition: var(--transition-smooth);
+}
+
+.file-editor-textarea:focus {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
 }
 
 /* Scrollbar styles for the code content */
-.drawer-body pre::-webkit-scrollbar {
+.file-editor-textarea::-webkit-scrollbar {
     width: 8px;
     height: 8px;
 }
-.drawer-body pre::-webkit-scrollbar-track {
+.file-editor-textarea::-webkit-scrollbar-track {
     background: transparent;
 }
-.drawer-body pre::-webkit-scrollbar-thumb {
+.file-editor-textarea::-webkit-scrollbar-thumb {
     background: rgba(255, 255, 255, 0.15);
     border-radius: 4px;
 }
-.drawer-body pre::-webkit-scrollbar-thumb:hover {
+.file-editor-textarea::-webkit-scrollbar-thumb:hover {
     background: rgba(255, 255, 255, 0.3);
 }
 

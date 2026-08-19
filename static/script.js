@@ -222,7 +222,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // ================= 6. XỬ LÝ LẤY FILE VÀ DRAWER HIỂN THỊ =================
+    // ================= 6. XỬ LÝ LẤY FILE VÀ DRAWER HIỂN THỊ VÀ LƯU FILE =================
     const filePathToGet = document.getElementById('file-path-to-get');
     const btnRequestFile = document.getElementById('btn-request-file');
     const btnToggleViewer = document.getElementById('btn-toggle-viewer');
@@ -230,6 +230,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const viewerFileName = document.getElementById('viewer-file-name');
     const viewerStatusBadge = document.getElementById('viewer-status-badge');
     const btnCopyFileContent = document.getElementById('btn-copy-file-content');
+    const btnSaveFileContent = document.getElementById('btn-save-file-content');
     const btnCloseDrawer = document.getElementById('btn-close-drawer');
     const viewerErrorContainer = document.getElementById('viewer-error-container');
     const viewerErrorMsg = document.getElementById('viewer-error-msg');
@@ -253,7 +254,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Sao chép nội dung file
     btnCopyFileContent.addEventListener('click', () => {
-        const text = fileViewerContent.textContent;
+        const text = fileViewerContent.value;
         if (!text) return;
         
         navigator.clipboard.writeText(text).then(() => {
@@ -284,7 +285,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         viewerLoading.style.display = 'flex';
         viewerErrorContainer.style.display = 'none';
-        fileViewerContent.textContent = '';
+        fileViewerContent.value = '';
         
         viewerStatusBadge.textContent = 'ĐANG TẢI...';
         viewerStatusBadge.className = 'badge badge-warning';
@@ -323,11 +324,53 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // Gửi yêu cầu lưu file
+    btnSaveFileContent.addEventListener('click', () => {
+        const path = filePathToGet.value.trim();
+        const content = fileViewerContent.value;
+        if (!path) {
+            alert('Đường dẫn file trống!');
+            return;
+        }
+
+        viewerLoading.style.display = 'flex';
+        viewerErrorContainer.style.display = 'none';
+        
+        viewerStatusBadge.textContent = 'ĐANG GHI...';
+        viewerStatusBadge.className = 'badge badge-warning';
+
+        if (filePollInterval) {
+            clearInterval(filePollInterval);
+        }
+
+        fetch('/api/save_file', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ file_path: path, content: content })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'success') {
+                const transferId = data.transfer_id;
+                // Bắt đầu poll trạng thái ghi file
+                pollWriteStatus(transferId);
+            } else {
+                showViewerError(data.message || 'Lỗi gửi yêu cầu lưu file.');
+            }
+        })
+        .catch(err => {
+            console.error('Lỗi lưu file:', err);
+            showViewerError('Không thể kết nối máy chủ để lưu file.');
+        });
+    });
+
     function showViewerError(msg) {
         viewerLoading.style.display = 'none';
         viewerErrorMsg.textContent = msg;
         viewerErrorContainer.style.display = 'flex';
-        fileViewerContent.textContent = '';
+        fileViewerContent.value = '';
         viewerStatusBadge.textContent = 'LỖI';
         viewerStatusBadge.className = 'badge badge-offline';
     }
@@ -354,7 +397,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         // Thành công, dừng poll và hiển thị
                         clearInterval(filePollInterval);
                         viewerLoading.style.display = 'none';
-                        fileViewerContent.textContent = fileData.content;
+                        fileViewerContent.value = fileData.content;
                         viewerStatusBadge.textContent = 'HOÀN THÀNH';
                         viewerStatusBadge.className = 'badge badge-online pulse';
                     } else if (fileData.status === 'error') {
@@ -362,7 +405,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         clearInterval(filePollInterval);
                         showViewerError(fileData.error_message || 'Laptop báo lỗi khi đọc file.');
                     }
-                    // Nếu trạng thái là 'pending', tiếp tục poll ở lần lặp tiếp theo
                 } else {
                     clearInterval(filePollInterval);
                     showViewerError(resData.message || 'Lỗi kiểm tra trạng thái.');
@@ -373,7 +415,49 @@ document.addEventListener('DOMContentLoaded', () => {
                 clearInterval(filePollInterval);
                 showViewerError('Mất kết nối mạng khi đang tải file.');
             });
-        }, 500); // Poll mỗi 500ms
+        }, 500);
+    }
+
+    function pollWriteStatus(transferId) {
+        let attempts = 0;
+        const maxAttempts = 60; // 30 giây tối đa
+
+        filePollInterval = setInterval(() => {
+            attempts++;
+            if (attempts > maxAttempts) {
+                clearInterval(filePollInterval);
+                showViewerError('Hết thời gian chờ phản hồi ghi file từ laptop (Timeout 30s).');
+                return;
+            }
+
+            fetch(`/api/file_status/${transferId}`)
+            .then(res => res.json())
+            .then(resData => {
+                if (resData.status === 'success') {
+                    const fileData = resData.data;
+                    
+                    if (fileData.status === 'success') {
+                        // Thành công, dừng poll
+                        clearInterval(filePollInterval);
+                        viewerLoading.style.display = 'none';
+                        viewerStatusBadge.textContent = 'ĐÃ LƯU';
+                        viewerStatusBadge.className = 'badge badge-online pulse';
+                    } else if (fileData.status === 'error') {
+                        // Thất bại, dừng poll và hiển thị lỗi
+                        clearInterval(filePollInterval);
+                        showViewerError(fileData.error_message || 'Laptop báo lỗi khi ghi file.');
+                    }
+                } else {
+                    clearInterval(filePollInterval);
+                    showViewerError(resData.message || 'Lỗi kiểm tra trạng thái ghi.');
+                }
+            })
+            .catch(err => {
+                console.error('Lỗi khi poll write status:', err);
+                clearInterval(filePollInterval);
+                showViewerError('Mất kết nối mạng khi đang lưu file.');
+            });
+        }, 500);
     }
 
 });

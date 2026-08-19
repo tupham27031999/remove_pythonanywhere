@@ -244,6 +244,44 @@ def request_file():
         "transfer_id": transfer_id
     })
 
+@app.route('/api/save_file', methods=['POST'])
+@login_required
+def save_file():
+    data = request.get_json()
+    if not data or 'file_path' not in data or 'content' not in data:
+        return jsonify({"status": "error", "message": "Thiếu thông tin đường dẫn hoặc nội dung file"}), 400
+        
+    file_path = data['file_path']
+    content = data['content']
+    
+    with get_db() as conn:
+        cursor = conn.cursor()
+        # Thêm yêu cầu ghi file vào bảng file_content (lưu nội dung mới cần ghi)
+        cursor.execute(
+            "INSERT INTO file_content (file_path, content, status) VALUES (?, ?, 'pending')", 
+            (file_path, content)
+        )
+        transfer_id = cursor.lastrowid
+        
+        # Tạo lệnh gửi xuống cho Client laptop
+        import json
+        cmd_data = json.dumps({
+            "file_path": file_path,
+            "content": content,
+            "transfer_id": transfer_id
+        })
+        cursor.execute(
+            "INSERT INTO commands (type, data, status) VALUES ('write_file_content', ?, 'pending')", 
+            (cmd_data,)
+        )
+        conn.commit()
+        
+    return jsonify({
+        "status": "success", 
+        "message": "Đã gửi yêu cầu lưu file xuống laptop", 
+        "transfer_id": transfer_id
+    })
+
 @app.route('/api/file_status/<int:transfer_id>', methods=['GET'])
 @login_required
 def file_status(transfer_id):
@@ -283,10 +321,16 @@ def client_upload_file_content():
     error_message = data.get('error_message')
     
     with get_db() as conn:
-        conn.execute(
-            "UPDATE file_content SET status = ?, content = ?, error_message = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
-            (status, content, error_message, transfer_id)
-        )
+        if content is not None:
+            conn.execute(
+                "UPDATE file_content SET status = ?, content = ?, error_message = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+                (status, content, error_message, transfer_id)
+            )
+        else:
+            conn.execute(
+                "UPDATE file_content SET status = ?, error_message = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+                (status, error_message, transfer_id)
+            )
         conn.commit()
         
     return jsonify({"status": "success", "message": "Cập nhật nội dung file thành công"})

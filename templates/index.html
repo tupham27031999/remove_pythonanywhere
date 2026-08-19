@@ -109,6 +109,9 @@
                 <span id="viewer-status-badge" class="badge badge-warning">Đang chờ</span>
             </div>
             <div class="drawer-actions">
+                <button id="btn-save-file-content" class="btn btn-success btn-sm" title="Lưu thay đổi xuống Laptop">
+                    💾 Lưu
+                </button>
                 <button id="btn-copy-file-content" class="btn btn-secondary btn-sm" title="Sao chép nội dung">
                     📋 Copy
                 </button>
@@ -126,7 +129,7 @@
                 <div class="spinner"></div>
                 <p>Đang tải nội dung file...</p>
             </div>
-            <pre><code id="file-viewer-content"></code></pre>
+            <textarea id="file-viewer-content" class="file-editor-textarea" spellcheck="false" placeholder="Nội dung file sẽ xuất hiện ở đây..."></textarea>
         </div>
     </div>
 
