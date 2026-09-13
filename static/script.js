@@ -198,6 +198,74 @@ document.addEventListener('DOMContentLoaded', () => {
         sendCommand('double_click', { x, y });
     });
 
+    // Di chuyển chuột thông minh (Hover / Move) với bộ đệm chống nghẽn mạng
+    let lastMouseMoveTime = 0;
+    let mouseMoveTimer = null;
+    let pendingMoveData = null;
+
+    function sendThrottledMove(data) {
+        pendingMoveData = data;
+        const now = Date.now();
+        
+        // Gửi tối đa 1 lệnh di chuột mỗi 180ms khi đang rê liên tục
+        if (now - lastMouseMoveTime >= 180) {
+            lastMouseMoveTime = now;
+            sendCommand('move', data);
+            pendingMoveData = null;
+        } else {
+            // Khi dừng rê chuột, gửi ngay vị trí cuối cùng sau 80ms
+            if (mouseMoveTimer) clearTimeout(mouseMoveTimer);
+            mouseMoveTimer = setTimeout(() => {
+                if (pendingMoveData) {
+                    lastMouseMoveTime = Date.now();
+                    sendCommand('move', pendingMoveData);
+                    pendingMoveData = null;
+                }
+            }, 80);
+        }
+    }
+
+    remoteScreen.addEventListener('mousemove', (e) => {
+        // Nếu đang bấm giữ chuột trái để kéo thả, không gửi move đè
+        if (isMouseDown) return;
+
+        const rect = remoteScreen.getBoundingClientRect();
+        const x = (e.clientX - rect.left) / rect.width;
+        const y = (e.clientY - rect.top) / rect.height;
+
+        if (x >= 0 && x <= 1 && y >= 0 && y <= 1) {
+            sendThrottledMove({ x, y });
+        }
+    });
+
+    // Cuộn chuột trên màn hình máy tính (Mouse Wheel Scroll)
+    let lastScrollTime = 0;
+    let scrollTimer = null;
+    let pendingScrollDelta = 0;
+
+    remoteScreen.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        // deltaY > 0 là cuộn xuống, deltaY < 0 là cuộn lên
+        const delta = e.deltaY < 0 ? 120 : -120;
+        pendingScrollDelta += delta;
+
+        const now = Date.now();
+        if (now - lastScrollTime >= 150) {
+            lastScrollTime = now;
+            sendCommand('scroll', { delta: pendingScrollDelta });
+            pendingScrollDelta = 0;
+        } else {
+            if (scrollTimer) clearTimeout(scrollTimer);
+            scrollTimer = setTimeout(() => {
+                if (pendingScrollDelta !== 0) {
+                    lastScrollTime = Date.now();
+                    sendCommand('scroll', { delta: pendingScrollDelta });
+                    pendingScrollDelta = 0;
+                }
+            }, 80);
+        }
+    }, { passive: false });
+
     // ================= 5. CÁC PHÍM TẮT & GÕ VĂN BẢN =================
     
     // Nút phím nhanh
