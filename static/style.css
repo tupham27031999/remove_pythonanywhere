@@ -167,6 +167,7 @@ label {
 input[type="text"],
 input[type="password"],
 input[type="email"],
+textarea,
 select {
     font-family: var(--font-sans);
     background-color: rgba(0, 0, 0, 0.3);
@@ -179,9 +180,17 @@ select {
     transition: var(--transition-smooth);
 }
 
-input:focus, select:focus {
+input:focus, select:focus, textarea:focus {
     border-color: var(--color-primary);
     box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+#text-to-type {
+    width: 100%;
+    min-height: 80px;
+    resize: vertical;
+    line-height: 1.4;
+    font-family: inherit;
 }
 
 .help-text {

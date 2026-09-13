@@ -2,7 +2,8 @@ import os
 import sys
 import sqlite3
 import datetime
-from flask import Flask, request, jsonify, render_template, redirect, url_for, session, send_file
+import threading
+from flask import Flask, request, jsonify, render_template, redirect, url_for, session, send_file, Response
 
 # Cấu hình mã hoá utf-8 cho đầu ra console để tránh UnicodeEncodeError trên terminal Windows
 if sys.stdout and sys.stdout.encoding != 'utf-8':
@@ -21,6 +22,12 @@ app.secret_key = os.urandom(24) # Sinh ngẫu nhiên secret key cho session mỗ
 
 DATABASE = os.path.join(app.root_path, 'database.db')
 SCREEN_PATH = os.path.join(app.root_path, 'static', 'screen.jpg')
+
+# Lưu trữ ảnh chụp màn hình trực tiếp trong RAM để tối đa hóa tốc độ phục vụ
+latest_screen_bytes = None
+latest_screen_mimetype = 'image/webp'
+screen_lock = threading.Lock()
+screen_version = 0
 
 def get_db():
     conn = sqlite3.connect(DATABASE)
@@ -109,7 +116,12 @@ def client_register():
         conn.execute("INSERT INTO session_info (id, password, last_seen) VALUES (1, ?, ?)", (password, now))
         conn.commit()
         
-    # Xoá ảnh chụp màn hình cũ nếu có
+    # Reset bộ đệm ảnh trong RAM và file cũ
+    global latest_screen_bytes, screen_version
+    with screen_lock:
+        latest_screen_bytes = None
+        screen_version = 0
+
     if os.path.exists(SCREEN_PATH):
         try:
             os.remove(SCREEN_PATH)
@@ -138,7 +150,6 @@ def client_poll():
                     "data": row["data"]
                 })
             # Đánh dấu các lệnh này đã được gửi (done hoặc gửi đi)
-            # Ở đây ta chuyển trạng thái thành 'sent' để giữ log, hoặc xóa luôn. Để gọn nhẹ ta xóa luôn.
             conn.execute("DELETE FROM commands WHERE status = 'pending'")
             conn.commit()
             
@@ -146,6 +157,7 @@ def client_poll():
 
 @app.route('/api/client/screen', methods=['POST'])
 def client_upload_screen():
+    global latest_screen_bytes, latest_screen_mimetype, screen_version
     if not verify_client_request():
         return jsonify({"status": "error", "message": "Unauthorized"}), 401
         
@@ -157,8 +169,13 @@ def client_upload_screen():
         return jsonify({"status": "error", "message": "No selected file"}), 400
         
     if file:
-        file.save(SCREEN_PATH)
-        return jsonify({"status": "success", "message": "Screen updated"})
+        data = file.read()
+        mimetype = file.content_type or 'image/webp'
+        with screen_lock:
+            latest_screen_bytes = data
+            latest_screen_mimetype = mimetype
+            screen_version += 1
+        return jsonify({"status": "success", "message": "Screen updated", "version": screen_version})
 
 # ================= API DÀNH CHO OFFICE PC (WEB INTERFACE) =================
 
@@ -338,15 +355,26 @@ def client_upload_file_content():
 @app.route('/api/screen')
 @login_required
 def get_screen():
-    if os.path.exists(SCREEN_PATH):
+    global latest_screen_bytes, latest_screen_mimetype, screen_version
+    with screen_lock:
+        data = latest_screen_bytes
+        mimetype = latest_screen_mimetype
+        ver = screen_version
+        
+    if data:
+        resp = Response(data, mimetype=mimetype)
+        resp.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        resp.headers['Pragma'] = 'no-cache'
+        resp.headers['Expires'] = '0'
+        resp.headers['X-Screen-Version'] = str(ver)
+        return resp
+    elif os.path.exists(SCREEN_PATH):
         response = send_file(SCREEN_PATH, mimetype='image/jpeg')
-        # Thêm header chống cache để trình duyệt luôn lấy ảnh mới nhất
         response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
         response.headers['Pragma'] = 'no-cache'
         response.headers['Expires'] = '0'
         return response
     else:
-        # Nếu chưa có ảnh, trả về ảnh đen trống hoặc status
         return "No screen frame available yet", 404
 
 @app.route('/api/status')

@@ -20,8 +20,9 @@
             <div class="refresh-control">
                 <label for="refresh-interval">Làm mới: </label>
                 <select id="refresh-interval">
-                    <option value="200">Siêu nhanh (200ms)</option>
-                    <option value="500" selected>Mượt mà (500ms)</option>
+                    <option value="150">Cực nhanh (150ms)</option>
+                    <option value="300" selected>Rất mượt (300ms)</option>
+                    <option value="500">Mượt mà (500ms)</option>
                     <option value="1000">Tiết kiệm (1s)</option>
                     <option value="2000">Chậm (2s)</option>
                     <option value="manual">Thủ công</option>
@@ -42,6 +43,8 @@
                 <div class="keyboard-grid">
                     <button class="btn btn-control" data-key="ctrl+c">Ctrl + C</button>
                     <button class="btn btn-control" data-key="ctrl+v">Ctrl + V</button>
+                    <button class="btn btn-control" data-key="ctrl+z">Ctrl + Z</button>
+                    <button class="btn btn-control" data-key="ctrl+y">Ctrl + Y</button>
                     <button class="btn btn-control" data-key="ctrl+s">Ctrl + S</button>
                     <button class="btn btn-control" data-key="ctrl+a">Ctrl + A</button>
                     <button class="btn btn-control" data-key="alt+tab">Alt + Tab</button>
@@ -57,11 +60,11 @@
 
             <div class="sidebar-section">
                 <h3>Gõ văn bản / Copy-Paste</h3>
-                <div class="form-group-inline">
-                    <input type="text" id="text-to-type" placeholder="Nhập văn bản cần gõ...">
-                    <button id="btn-send-text" class="btn btn-primary">Gõ</button>
+                <div class="form-group">
+                    <textarea id="text-to-type" rows="3" placeholder="Nhập hoặc dán văn bản (hỗ trợ nhiều dòng)..."></textarea>
+                    <button id="btn-send-text" class="btn btn-primary btn-block">Gõ / Paste vào máy</button>
                 </div>
-                <small class="help-text">Nhập text rồi nhấn "Gõ", máy ở nhà sẽ tự động giả lập nhập chuỗi này.</small>
+                <small class="help-text">Nhập hoặc paste văn bản (hỗ trợ xuống dòng) rồi nhấn nút hoặc bấm <strong>Ctrl + Enter</strong> để gửi.</small>
             </div>
 
 

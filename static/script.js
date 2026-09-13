@@ -51,22 +51,22 @@ document.addEventListener('DOMContentLoaded', () => {
     refreshSelect.addEventListener('change', setupAutoRefresh);
     btnManualRefresh.addEventListener('click', refreshScreen);
 
-    // Tự động kích hoạt refresh nhanh dồn dập khi có tương tác
+    // Tự động kích hoạt refresh nhanh dồn dập khi có tương tác (click, phím, gõ)
     function triggerFastRefresh() {
         if (tempFastRefreshTimer) {
             clearInterval(tempFastRefreshTimer);
         }
         tempFastRefreshCounter = 0;
-        // Thực hiện refresh nhanh mỗi 300ms trong vòng 8 lần (~2.4 giây)
-        // để bắt kịp phản hồi của máy tính ở nhà sau lệnh click/phím
+        // Thực hiện refresh nhanh mỗi 150ms trong vòng 10 lần (~1.5 giây)
+        // để bắt kịp phản hồi tức thì của máy tính ở nhà sau lệnh click/phím
         tempFastRefreshTimer = setInterval(() => {
             refreshScreen();
             tempFastRefreshCounter++;
-            if (tempFastRefreshCounter >= 8) {
+            if (tempFastRefreshCounter >= 10) {
                 clearInterval(tempFastRefreshTimer);
                 tempFastRefreshTimer = null;
             }
-        }, 300);
+        }, 150);
     }
 
     setupAutoRefresh(); // Kích hoạt ngay khi load trang
@@ -216,8 +216,9 @@ document.addEventListener('DOMContentLoaded', () => {
         textToType.value = ''; // Reset input
     });
 
-    textToType.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
+    textToType.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+            e.preventDefault();
             btnSendText.click();
         }
     });

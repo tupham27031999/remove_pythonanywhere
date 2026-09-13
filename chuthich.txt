@@ -7,3 +7,4 @@ git push origin main
 cd remove_pythonanywhere
 git fetch --all
 git reset --hard origin/main
+
