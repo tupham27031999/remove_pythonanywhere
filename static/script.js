@@ -100,8 +100,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // ================= 3. GỬI LỆNH LÊN SERVER =================
     
     function sendCommand(type, data) {
-        // Tạm thời hiển thị cursor ảo đỏ tại điểm click (nếu là lệnh click)
-        if (type === 'click') {
+        // Tạm thời hiển thị cursor ảo đỏ tại điểm click (nếu là lệnh click hoặc double click)
+        if (type === 'click' || type === 'double_click') {
             const xPercent = data.x * 100;
             const yPercent = data.y * 100;
             virtualCursor.style.left = `${xPercent}%`;
@@ -109,7 +109,7 @@ document.addEventListener('DOMContentLoaded', () => {
             virtualCursor.style.display = 'block';
             setTimeout(() => {
                 virtualCursor.style.display = 'none';
-            }, 500);
+            }, 600);
         }
 
         fetch('/api/command', {
