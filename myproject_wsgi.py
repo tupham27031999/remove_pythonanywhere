@@ -1,16 +1,20 @@
-import sys
+# <--- Đoạn được PythonAnywhere tự động thêm ---
 import os
+import sys
 
-# Đường dẫn tới thư mục chứa mã nguồn FastAPI (thay USERNAME bằng tên người dùng trên PythonAnywhere)
-BASE_DIR = '/home/USERNAME/code_pythonanywhere'
-if BASE_DIR not in sys.path:
-    sys.path.append(BASE_DIR)
+# Đường dẫn tới virtualenv
+path = '/home/tupham/venv-remove-pa/lib/python3.11/site-packages'
+if path not in sys.path:
+    sys.path.append(path)
 
-# Đảm bảo biến môi trường PYTHONPATH bao gồm thư mục này (tùy chọn)
-os.environ.setdefault('PYTHONPATH', BASE_DIR)
+# Đường dẫn tới thư mục chứa mã nguồn
+project_home = '/home/tupham/remove_pythonanywhere'
+if project_home not in sys.path:
+    sys.path.append(project_home)
 
-# Import FastAPI app từ file main.py
-from main import app as application
+# Thêm thư mục chứa ứng dụng Flask/Django (tùy dự án của bạn)
+os.chdir(project_home)
 
-# Nếu cần chạy bằng gunicorn, không cần thêm gì thêm; `application` là đối tượng ASGI.
-# (PythonAnywhere sẽ sử dụng `gunicorn -k uvicorn.workers.UvicornWorker myproject_wsgi:application`)
+# Import ứng dụng (giả sử Flask và file app.py)
+from app import app as application   # <-- thay 'app' và 'application' tùy dự án
+# <--- End of auto‑generated section --->
