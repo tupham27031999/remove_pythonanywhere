@@ -33,10 +33,11 @@ templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
 # ----------------------------------------------------------------------
 # Global in-memory screen cache
 # ----------------------------------------------------------------------
+import threading as _threading
 latest_screen_bytes: bytes | None = None
 latest_screen_mimetype: str = "image/jpeg"
 screen_version: int = 0
-screen_lock: asyncio.Lock = asyncio.Lock()   # asyncio-safe lock cho cả HTTP lẫn WebSocket
+screen_lock = _threading.Lock()   # threading.Lock tương thích với asyncio.run() per-request
 
 # ----------------------------------------------------------------------
 # Database utilities (same schema as original Flask app)
@@ -184,7 +185,7 @@ async def client_upload_screen(request: Request, file: UploadFile = File(...)):
     global latest_screen_bytes, latest_screen_mimetype, screen_version
     content = await file.read()
     mimetype = file.content_type or "image/webp"
-    async with screen_lock:
+    with screen_lock:
         latest_screen_bytes = content
         latest_screen_mimetype = mimetype
         screen_version += 1
@@ -310,7 +311,7 @@ async def client_upload_file_content(request: Request):
 @app.get("/api/screen")
 @auth_required
 async def get_screen():
-    async with screen_lock:
+    with screen_lock:
         data = latest_screen_bytes
         mimetype = latest_screen_mimetype
         ver = screen_version
@@ -409,7 +410,7 @@ async def ws_screen(ws: WebSocket):
     try:
         while True:
             await asyncio.sleep(0.1)
-            async with screen_lock:
+            with screen_lock:
                 version = screen_version
                 data = latest_screen_bytes
                 mimetype = latest_screen_mimetype
