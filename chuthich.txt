@@ -11,3 +11,5 @@ git reset --hard origin/main
 
 
 deactivate
+
+source ~/venv-remove-pa/bin/activate

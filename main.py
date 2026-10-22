@@ -350,12 +350,12 @@ async def get_status():
 @app.get("/api/ping")
 async def ping():
     return JSONResponse({"server_time": datetime.datetime.now().timestamp()})
-            diff = (datetime.datetime.now() - last_seen).total_seconds()
-            if diff < 15:
-                return JSONResponse({"status": "online", "last_seen_seconds_ago": int(diff)})
-            else:
-                return JSONResponse({"status": "offline", "last_seen_seconds_ago": int(diff)})
-        return JSONResponse({"status": "not_registered"})
+    diff = (datetime.datetime.now() - last_seen).total_seconds()
+    if diff < 15:
+        return JSONResponse({"status": "online", "last_seen_seconds_ago": int(diff)})
+    else:
+        return JSONResponse({"status": "offline", "last_seen_seconds_ago": int(diff)})
+    return JSONResponse({"status": "not_registered"})
 
 # ----------------------------------------------------------------------
 # WebSocket – push pending commands to the client in real‑time
