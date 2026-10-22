@@ -113,7 +113,7 @@ def auth_required(func):
 
 @app.get("/login", response_class=HTMLResponse)
 async def get_login(request: Request):
-    return templates.TemplateResponse("login.html", {"request": request, "error": None})
+    return templates.TemplateResponse(request, "login.html", {"error": None})
 
 @app.post("/login", response_class=HTMLResponse)
 async def post_login(request: Request, password: str = Form(...)):
@@ -134,7 +134,7 @@ async def logout(request: Request):
 @app.get("/", response_class=HTMLResponse)
 @auth_required
 async def index(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
+    return templates.TemplateResponse(request, "index.html", {})
 
 # ----------------------------------------------------------------------
 # API used by the home‑PC client (register, poll, screen upload)
