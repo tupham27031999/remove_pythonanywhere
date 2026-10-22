@@ -30,6 +30,13 @@ app.mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), na
 app.add_middleware(GZipMiddleware, minimum_size=500)
 templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
 
+# ----------------------------------------------------------------------
+# Global in-memory screen cache
+# ----------------------------------------------------------------------
+latest_screen_bytes: bytes | None = None
+latest_screen_mimetype: str = "image/jpeg"
+screen_version: int = 0
+screen_lock: asyncio.Lock = asyncio.Lock()   # asyncio-safe lock cho cả HTTP lẫn WebSocket
 
 # ----------------------------------------------------------------------
 # Database utilities (same schema as original Flask app)
@@ -146,13 +153,9 @@ async def client_register(request: Request):
         )
         conn.commit()
     # reset in‑memory screen cache
-    global latest_screen_bytes, latest_screen_mimetype, screen_version, screen_lock
-    if screen_lock is None:
-        import threading
-        screen_lock = threading.Lock()
-    with screen_lock:
-        latest_screen_bytes = None
-        screen_version = 0
+    global latest_screen_bytes, latest_screen_mimetype, screen_version
+    latest_screen_bytes = None
+    screen_version = 0
     # delete stale file on disk
     if os.path.exists(SCREEN_PATH):
         try:
@@ -178,13 +181,10 @@ async def client_poll(request: Request):
 async def client_upload_screen(request: Request, file: UploadFile = File(...)):
     if not verify_client(request):
         raise HTTPException(status_code=HTTP_401_UNAUTHORIZED, detail="Unauthorized")
-    global latest_screen_bytes, latest_screen_mimetype, screen_version, screen_lock
+    global latest_screen_bytes, latest_screen_mimetype, screen_version
     content = await file.read()
     mimetype = file.content_type or "image/webp"
-    if screen_lock is None:
-        import threading
-        screen_lock = threading.Lock()
-    with screen_lock:
+    async with screen_lock:
         latest_screen_bytes = content
         latest_screen_mimetype = mimetype
         screen_version += 1
@@ -310,11 +310,7 @@ async def client_upload_file_content(request: Request):
 @app.get("/api/screen")
 @auth_required
 async def get_screen():
-    global latest_screen_bytes, latest_screen_mimetype, screen_version, screen_lock
-    if screen_lock is None:
-        import threading
-        screen_lock = threading.Lock()
-    with screen_lock:
+    async with screen_lock:
         data = latest_screen_bytes
         mimetype = latest_screen_mimetype
         ver = screen_version
