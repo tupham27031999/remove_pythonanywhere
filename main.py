@@ -20,17 +20,21 @@ import base64
 # ----------------------------------------------------------------------
 # FastAPI app configuration
 # ----------------------------------------------------------------------
+# Dùng đường dẫn tuyệt đối để tránh lỗi khi chạy qua WSGI
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
 app = FastAPI(title="Remote Control Server (FastAPI)", debug=True)
 app.add_middleware(SessionMiddleware, secret_key=os.urandom(24))
-app.mount("/static", StaticFiles(directory="static"), name="static")
+os.makedirs(os.path.join(BASE_DIR, "static"), exist_ok=True)
+app.mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), name="static")
 app.add_middleware(GZipMiddleware, minimum_size=500)
-templates = Jinja2Templates(directory="templates")
+templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
 
 # ----------------------------------------------------------------------
 # Database utilities (same schema as original Flask app)
 # ----------------------------------------------------------------------
-DATABASE = os.path.join(app.root_path, "database.db")
-SCREEN_PATH = os.path.join(app.root_path, "static", "screen.jpg")
+DATABASE = os.path.join(BASE_DIR, "database.db")
+SCREEN_PATH = os.path.join(BASE_DIR, "static", "screen.jpg")
 
 def get_db():
     conn = sqlite3.connect(DATABASE)
@@ -38,7 +42,7 @@ def get_db():
     return conn
 
 def init_db():
-    os.makedirs(os.path.join(app.root_path, "static"), exist_ok=True)
+    os.makedirs(os.path.join(BASE_DIR, "static"), exist_ok=True)
     with get_db() as conn:
         conn.executescript("""
             CREATE TABLE IF NOT EXISTS session_info (
