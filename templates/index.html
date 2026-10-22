@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bảng điều khiển - Test Interface Portal</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="dashboard-body">
+    <header class="main-header glass-card">
+        <div class="header-left">
+            <span class="brand-dot pulse"></span>
+            <h1 class="header-title">Test Interface</h1>
+            <span id="connection-badge" class="badge badge-offline">Đang kiểm tra...</span>
+        </div>
+        <div class="header-right">
+            <div class="refresh-control">
+                <label for="refresh-interval">Làm mới: </label>
+                <select id="refresh-interval">
+                    <option value="150">Cực nhanh (150ms)</option>
+                    <option value="300" selected>Rất mượt (300ms)</option>
+                    <option value="500">Mượt mà (500ms)</option>
+                    <option value="1000">Tiết kiệm (1s)</option>
+                    <option value="2000">Chậm (2s)</option>
+                    <option value="manual">Thủ công</option>
+                </select>
+                <button id="btn-manual-refresh" class="btn btn-secondary btn-icon" title="Tải lại khung hình">
+                    🔄
+                </button>
+            </div>
+            <a href="{{ url_for('logout') }}" class="btn btn-danger btn-sm">Đăng xuất</a>
+        </div>
+    </header>
+
+    <main class="workspace">
+        <!-- Sidebar điều khiển bên trái -->
+        <aside class="control-sidebar glass-card">
+            <div class="sidebar-section">
+                <h3>Gửi lệnh nhanh</h3>
+                <div class="keyboard-grid">
+                    <button class="btn btn-control" data-key="ctrl+c">Ctrl + C</button>
+                    <button class="btn btn-control" data-key="ctrl+v">Ctrl + V</button>
+                    <button class="btn btn-control" data-key="ctrl+z">Ctrl + Z</button>
+                    <button class="btn btn-control" data-key="ctrl+y">Ctrl + Y</button>
+                    <button class="btn btn-control" data-key="ctrl+s">Ctrl + S</button>
+                    <button class="btn btn-control" data-key="ctrl+a">Ctrl + A</button>
+                    <button class="btn btn-control" data-key="alt+tab">Alt + Tab</button>
+                    <button class="btn btn-control" data-key="win">Win Key</button>
+                    <button class="btn btn-control" data-key="esc">Esc</button>
+                    <button class="btn btn-control" data-key="tab">Tab</button>
+                    <button class="btn btn-control" data-key="enter">Enter</button>
+                    <button class="btn btn-control" data-key="space">Space</button>
+                    <button class="btn btn-control" data-key="backspace">Backspace</button>
+                    <button class="btn btn-control" data-key="delete">Delete</button>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <h3>Gõ văn bản / Copy-Paste</h3>
+                <div class="form-group">
+                    <textarea id="text-to-type" rows="3" placeholder="Nhập hoặc dán văn bản (hỗ trợ nhiều dòng)..."></textarea>
+                    <button id="btn-send-text" class="btn btn-primary btn-block">Gõ / Paste vào máy</button>
+                </div>
+                <small class="help-text">Nhập hoặc paste văn bản (hỗ trợ xuống dòng) rồi nhấn nút hoặc bấm <strong>Ctrl + Enter</strong> để gửi.</small>
+            </div>
+
+
+            
+            <div class="sidebar-section">
+                <h3>Sao chép File từ máy tính</h3>
+                <div class="form-group-inline">
+                    <input type="text" id="file-path-to-get" placeholder="Đường dẫn file (ví dụ C:\temp\a.txt)...">
+                    <button id="btn-request-file" class="btn btn-success">Lấy file</button>
+                </div>
+                <small class="help-text">Nhập đường dẫn đầy đủ của file văn bản để đọc trực tiếp trên Web.</small>
+                <button id="btn-toggle-viewer" class="btn btn-secondary btn-sm btn-block" style="margin-top: 5px;">
+                    👁️ Ẩn/Hiện khung xem file
+                </button>
+            </div>
+
+            <div class="sidebar-section instructions">
+                <h3>💡 Thao tác Chuột</h3>
+                <ul>
+                    <li><strong>Di chuột (Hover):</strong> Rê chuột trên web để di chuyển chuột laptop</li>
+                    <li><strong>Click trái:</strong> Click chuột trái trên màn hình</li>
+                    <li><strong>Click phải:</strong> Click chuột phải hoặc Ctrl + Click</li>
+                    <li><strong>Cuộn chuột:</strong> Lăn con lăn chuột trên màn hình</li>
+                    <li><strong>Double Click:</strong> Nhấn đúp chuột trái</li>
+                    <li><strong>Kéo thả (Drag):</strong> Giữ phím Shift + Click & Kéo thả</li>
+                </ul>
+            </div>
+        </aside>
+
+        <!-- Khung xem màn hình từ xa -->
+        <section class="screen-view glass-card">
+            <div class="screen-container">
+                <div class="screen-wrapper" id="screen-wrapper">
+                    <!-- Ảnh màn hình chính -->
+                    <img id="remote-screen" src="{{ url_for('get_screen') }}" alt="Màn hình đang kết nối..." draggable="false">
+                    <div id="mouse-cursor" class="virtual-cursor" style="display: none;"></div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Cửa sổ Drawer xem nội dung file -->
+    <div id="file-viewer-drawer" class="file-viewer-drawer">
+        <div class="drawer-header">
+            <div class="drawer-title-container">
+                <h2 id="viewer-file-name">Nội dung file</h2>
+                <span id="viewer-status-badge" class="badge badge-warning">Đang chờ</span>
+            </div>
+            <div class="drawer-actions">
+                <button id="btn-save-file-content" class="btn btn-success btn-sm" title="Lưu thay đổi xuống Laptop">
+                    💾 Lưu
+                </button>
+                <button id="btn-copy-file-content" class="btn btn-secondary btn-sm" title="Sao chép nội dung">
+                    📋 Copy
+                </button>
+                <button id="btn-close-drawer" class="btn btn-danger btn-sm" title="Đóng cửa sổ">
+                    ✕
+                </button>
+            </div>
+        </div>
+        <div class="drawer-body">
+            <div id="viewer-error-container" class="alert alert-error" style="display: none;">
+                <span class="alert-icon">⚠️</span>
+                <span id="viewer-error-msg"></span>
+            </div>
+            <div id="viewer-loading" class="viewer-loading-container" style="display: none;">
+                <div class="spinner"></div>
+                <p>Đang tải nội dung file...</p>
+            </div>
+            <textarea id="file-viewer-content" class="file-editor-textarea" spellcheck="false" placeholder="Nội dung file sẽ xuất hiện ở đây..."></textarea>
+        </div>
+    </div>
+
+    <footer class="footer">
+        <p>&copy; 2026 Test Interface Web Portal. Chạy trên PythonAnywhere.</p>
+    </footer>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
