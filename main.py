@@ -5,6 +5,7 @@ import sqlite3
 import datetime
 import json
 import asyncio
+import functools
 from typing import Dict
 
 from fastapi import FastAPI, Request, Form, HTTPException, UploadFile, File, WebSocket, WebSocketDisconnect
@@ -103,9 +104,10 @@ def verify_client(request: Request) -> bool:
 # Session based login (web UI) – uses Starlette session middleware
 # ----------------------------------------------------------------------
 def auth_required(func):
+    @functools.wraps(func)
     async def wrapper(request: Request, *args, **kwargs):
         if not request.session.get("logged_in"):
-            raise HTTPException(status_code=HTTP_401_UNAUTHORIZED, detail="Unauthenticated")
+            return RedirectResponse(url="/login", status_code=302)
         return await func(request, *args, **kwargs)
     return wrapper
 
